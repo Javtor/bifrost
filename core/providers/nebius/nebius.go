@@ -318,7 +318,7 @@ func (provider *NebiusProvider) ImageGeneration(ctx *schemas.BifrostContext, key
 		return nil, providerUtils.NewBifrostOperationError(schemas.ErrProviderResponseDecode, err, providerName)
 	}
 
-	response := &schemas.BifrostImageGenerationResponse{}
+	response := schemas.AcquireBifrostImageGenerationResponse()
 
 	sendBackRawRequest, sendBackRawResponse := providerUtils.ShouldSendBackRawRequest(ctx, provider.sendBackRawRequest), providerUtils.ShouldSendBackRawResponse(ctx, provider.sendBackRawResponse)
 
