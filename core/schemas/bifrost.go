@@ -134,7 +134,9 @@ const (
 	ContainerFileDeleteRequest   RequestType = "container_file_delete"
 	CountTokensRequest           RequestType = "count_tokens"
 	MCPToolExecutionRequest      RequestType = "mcp_tool_execution"
-	UnknownRequest               RequestType = "unknown"
+	WebSocketResponsesRequest   RequestType = "websocket_responses"
+	RealtimeRequest             RequestType = "realtime"
+	UnknownRequest              RequestType = "unknown"
 )
 
 // BifrostContextKey is a type for context keys used in Bifrost.

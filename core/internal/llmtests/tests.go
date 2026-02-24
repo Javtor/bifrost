@@ -98,6 +98,8 @@ func RunAllComprehensiveTests(t *testing.T, client *bifrost.Bifrost, ctx context
 		RunContainerFileDeleteTest,
 		RunContainerFileUnsupportedTest,
 		RunPassthroughExtraParamsTest,
+		RunWebSocketResponsesTest,
+		RunRealtimeTest,
 	}
 
 	// Execute all test scenarios
@@ -179,6 +181,8 @@ func printTestSummary(t *testing.T, testConfig ComprehensiveTestConfig) {
 		{"ContainerFileDelete", testConfig.Scenarios.ContainerFileDelete},
 		{"ContainerFileUnsupported", !testConfig.Scenarios.ContainerFileCreate && !testConfig.Scenarios.ContainerFileList && !testConfig.Scenarios.ContainerFileRetrieve && !testConfig.Scenarios.ContainerFileContent && !testConfig.Scenarios.ContainerFileDelete},
 		{"PassThroughExtraParams", testConfig.Scenarios.PassThroughExtraParams},
+		{"WebSocketResponses", testConfig.Scenarios.WebSocketResponses && testConfig.ChatModel != ""},
+		{"Realtime", testConfig.Scenarios.Realtime && testConfig.RealtimeModel != ""},
 	}
 
 	supported := 0

@@ -64,6 +64,8 @@ Tests all core scenarios using OpenAI SDK directly:
 53. Image Generation - multiple images
 54. Image Generation - quality parameter
 55. Image Generation - different sizes
+60. WebSocket Responses API - base path
+61. WebSocket Responses API - integration paths
 
 Batch API uses OpenAI SDK with x-model-provider header to route to different providers.
 """
@@ -160,6 +162,10 @@ from .utils.common import (
     skip_if_no_api_key,
     # Citation utilities
     assert_valid_openai_annotation,
+    # WebSocket utilities
+    WS_RESPONSES_SIMPLE_INPUT,
+    get_ws_base_url,
+    run_ws_responses_test,
 )
 from .utils.config_loader import get_config, get_model
 from .utils.parametrize import (
@@ -3496,4 +3502,117 @@ class TestOpenAIIntegration:
         assert has_message, "Second turn should have message response"
         print(f"✓ Second turn completed with {len(response2.output)} output items")
         print(f"✓ Multi-turn conversation test passed!")
+
+    # =========================================================================
+    # WEBSOCKET RESPONSES API TESTS
+    # =========================================================================
+
+    @pytest.mark.parametrize(
+        "provider,model,vk_enabled",
+        get_cross_provider_params_with_vk_for_scenario("responses"),
+    )
+    def test_60_ws_responses_base_path(self, test_config, provider, model, vk_enabled):
+        """Test Case 60: WebSocket Responses API via base path /v1/responses.
+
+        Connects via raw WebSocket to the base path, sends a response.create event,
+        and validates streaming events (delta + completed) come back correctly.
+        """
+        if provider == "_no_providers_" or model == "_no_model_":
+            pytest.skip("No providers configured for this scenario")
+        _ = test_config
+
+        ws_base = get_ws_base_url()
+        ws_url = f"{ws_base}/v1/responses"
+        api_key = get_api_key(provider)
+        full_model = format_provider_model(provider, model)
+
+        extra_headers = {}
+        if vk_enabled:
+            config = get_config()
+            vk = config.get_virtual_key()
+            if vk:
+                extra_headers["x-bf-vk"] = vk
+
+        result = run_ws_responses_test(
+            ws_url=ws_url,
+            model=full_model,
+            api_key=api_key,
+            max_output_tokens=64,
+            timeout=30,
+            extra_headers=extra_headers if extra_headers else None,
+        )
+
+        assert result["error"] is None, (
+            f"WebSocket returned error: {result['error']}"
+        )
+        assert result["got_delta"], (
+            f"Expected at least one response.output_text.delta event. "
+            f"Got {result['event_count']} events: "
+            f"{[e.get('type') for e in result['events']]}"
+        )
+        assert result["got_completed"], (
+            f"Expected a terminal event (response.completed). "
+            f"Got {result['event_count']} events: "
+            f"{[e.get('type') for e in result['events']]}"
+        )
+        assert len(result["content"]) > 0, "Should receive non-empty text content"
+
+    @pytest.mark.parametrize(
+        "provider,model,vk_enabled",
+        get_cross_provider_params_with_vk_for_scenario("responses"),
+    )
+    def test_61_ws_responses_integration_paths(self, test_config, provider, model, vk_enabled):
+        """Test Case 61: WebSocket Responses API via OpenAI integration paths.
+
+        Validates that WebSocket connections work through all integration-prefixed
+        paths (/openai/v1/responses, /openai/responses) that mirror the HTTP POST
+        routes registered by the integration system.
+        """
+        if provider == "_no_providers_" or model == "_no_model_":
+            pytest.skip("No providers configured for this scenario")
+        _ = test_config
+
+        ws_base = get_ws_base_url()
+        api_key = get_api_key(provider)
+        full_model = format_provider_model(provider, model)
+
+        extra_headers = {}
+        if vk_enabled:
+            config = get_config()
+            vk = config.get_virtual_key()
+            if vk:
+                extra_headers["x-bf-vk"] = vk
+
+        # Test each integration path that was wired in the PR
+        integration_paths = [
+            "/openai/v1/responses",   # Azure GA pattern
+            "/openai/responses",      # Azure Preview pattern
+        ]
+
+        for path in integration_paths:
+            ws_url = f"{ws_base}{path}"
+
+            result = run_ws_responses_test(
+                ws_url=ws_url,
+                model=full_model,
+                api_key=api_key,
+                max_output_tokens=64,
+                timeout=30,
+                extra_headers=extra_headers if extra_headers else None,
+            )
+
+            assert result["error"] is None, (
+                f"WebSocket error at {path}: {result['error']}"
+            )
+            assert result["got_delta"], (
+                f"Expected delta events at {path}. "
+                f"Events: {[e.get('type') for e in result['events']]}"
+            )
+            assert result["got_completed"], (
+                f"Expected terminal event at {path}. "
+                f"Events: {[e.get('type') for e in result['events']]}"
+            )
+            assert len(result["content"]) > 0, (
+                f"Should receive non-empty content at {path}"
+            )
 
